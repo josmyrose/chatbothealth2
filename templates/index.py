@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Medical Symptom Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chat-container {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 70%;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f1f1f1;
+            margin-right: auto;
+        }
+        .symptom-tag {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            margin: 5px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .symptom-tag.selected {
+            background-color: #2196F3;
+        }
+        #symptom-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Medical Symptom Checker</h1>
+    <div class="chat-container" id="chat-container">
+        <div class="message bot-message">
+            Hello! I'm your medical assistant. Please select your symptoms from the list below or type them in the search box.
+        </div>
+    </div>
+    
+    <input type="text" id="symptom-input" placeholder="Search for symptoms...">
+    <div id="symptoms-container"></div>
+    <button id="predict-btn" disabled>Predict Possible Conditions</button>
+    
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const symptomsContainer = document.getElementById('symptoms-container');
+        const symptomInput = document.getElementById('symptom-input');
+        const predictBtn = document.getElementById('predict-btn');
+        
+        let selectedSymptoms = [];
+        let allSymptoms = [];
+        
+        // Fetch symptoms from backend
+        fetch('/symptoms')
+            .then(response => response.json())
+            .then(data => {
+                allSymptoms = data.symptoms;
+                renderSymptoms(allSymptoms);
+            });
+        
+        // Filter symptoms based on search
+        symptomInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allSymptoms.filter(symptom => 
+                symptom.toLowerCase().includes(searchTerm)
+            );
+            renderSymptoms(filtered);
+        });
+        
+        // Render symptoms as clickable tags
+        function renderSymptoms(symptoms) {
+            symptomsContainer.innerHTML = '';
+            symptoms.forEach(symptom => {
+                const tag = document.createElement('span');
+                tag.className = 'symptom-tag';
+                if (selectedSymptoms.includes(symptom)) {
+                    tag.classList.add('selected');
+                }
+                tag.textContent = symptom;
+                tag.addEventListener('click', () => {
+                    if (selectedSymptoms.includes(symptom)) {
+                        selectedSymptoms = selectedSymptoms.filter(s => s !== symptom);
+                        tag.classList.remove('selected');
+                    } else {
+                        selectedSymptoms.push(symptom);
+                        tag.classList.add('selected');
+                    }
+                    predictBtn.disabled = selectedSymptoms.length === 0;
+                    
+                    // Add user message
+                    addMessage(`I have: ${symptom}`, 'user');
+                });
+                symptomsContainer.appendChild(tag);
+            });
+        }
+        
+        // Add message to chat
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Predict button click
+        predictBtn.addEventListener('click', () => {
+            addMessage(`Predicting based on: ${selectedSymptoms.join(', ')}`, 'user');
+            
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ symptoms: selectedSymptoms }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                let responseText = 'Based on your symptoms, possible conditions are:\n';
+                data.predictions.forEach(pred => {
+                    responseText += `\n${pred.disease} (${Math.round(pred.probability * 100)}% likely)`;
+                });
+                responseText += '\n\nPlease consult a healthcare professional for accurate diagnosis.';
+                addMessage(responseText, 'bot');
+            });
+        });
+    </script>
+</body>
+</html>
