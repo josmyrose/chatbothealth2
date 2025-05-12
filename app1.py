@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, render_template
 import joblib
 import numpy as np
@@ -44,3 +45,4 @@ def get_symptoms():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+    
